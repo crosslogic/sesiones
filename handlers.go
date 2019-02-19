@@ -40,17 +40,12 @@ func New(
 	secretKey []byte,
 	db *gorm.DB,
 	blanqueoTpl, confirmacionTpl *MailTemplate,
-	handlerPath string,
 	sender MailSender,
 ) (h *Handler, err error) {
 
 	h = &Handler{}
 	h.db = db
 	h.secretKey = secretKey
-
-	// Higienizo el / del host
-	handlerPath = strings.TrimSuffix(handlerPath, "/")
-	handlerPath = handlerPath + "/"
 
 	// Mail de blanqueo de contraseña
 	if blanqueoTpl == nil {
