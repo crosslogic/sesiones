@@ -13,6 +13,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// MailSender implementa el envío de un mail.
+type MailSender interface {
+	Send(to, from, subject, body string) error
+	// SenderAlias es el nombre que aparece en FROM
+	SenderAlias() string
+}
+
 type Handler struct {
 	db        *gorm.DB
 	secretKey []byte
@@ -23,55 +30,39 @@ type Handler struct {
 
 	DuracionSesion time.Duration
 
-	MailBlanqueo            MailBodyCreator
-	MailConfirmacionUsuario MailBodyCreator
+	MailBlanqueo            *MailTemplate
+	MailConfirmacionUsuario *MailTemplate
 	MailSender              MailSender
-}
-
-// MailSender implementa el envío de un mail.
-type MailSender interface {
-	Send(to, from, subject, body string) error
-	// SenderAlias es el nombre que aparece en FROM
-	SenderAlias() string
-}
-
-// MailBodyCreator implementa la creación de todo el html que va a ir en mail.
-type MailBodyCreator interface {
-	Body(nombre, url string) (html string, err error)
 }
 
 // New instancia un nuevo handler de sesiones.
 func New(
 	secretKey []byte,
 	db *gorm.DB,
-	blanqueo, confirmacion MailBodyCreator,
+	blanqueoTpl, confirmacionTpl *MailTemplate,
+	handlerPath string,
 	sender MailSender,
 ) (h *Handler, err error) {
 
 	h = &Handler{}
 	h.db = db
 	h.secretKey = secretKey
-	if blanqueo == nil {
-		// Pongo el mail por defecto
-		b, err := NewConfirmacionBlanqueo()
-		if err != nil {
-			return nil, errors.Wrap(err, "inicializando template de blanqueo de contraseña")
-		}
-		h.MailBlanqueo = b
-	} else {
-		h.MailBlanqueo = blanqueo
-	}
 
-	if confirmacion == nil {
-		// Pongo el mail por defecto
-		b, err := NewConfirmacionUsuario()
-		if err != nil {
-			return nil, errors.Wrap(err, "inicializando template de blanqueo de contraseña")
-		}
-		h.MailConfirmacionUsuario = b
-	} else {
-		h.MailConfirmacionUsuario = confirmacion
+	// Higienizo el / del host
+	handlerPath = strings.TrimSuffix(handlerPath, "/")
+	handlerPath = handlerPath + "/"
+
+	// Mail de blanqueo de contraseña
+	if blanqueoTpl == nil {
+		return nil, errors.New("no se ingresó template de blanqueo")
 	}
+	h.MailBlanqueo = blanqueoTpl
+
+	// Mail de confirmación de usuario
+	if confirmacionTpl == nil {
+		return nil, errors.New("no se ingresó template de confirmación de usuario")
+	}
+	h.MailConfirmacionUsuario = confirmacionTpl
 
 	h.MailSender = sender
 
@@ -85,6 +76,14 @@ func New(
 
 	return
 }
+
+const (
+	pathNuevoUsuario      = "nuevo_usuario"
+	pathConfirmarUsuario  = "confirmar_usuario"
+	pathSolicitarBlanqueo = "solicitar_blanqueo"
+	pathConfirmarBlanqueo = "confirmar_blanqueo"
+	pathCerrarSesion      = "cerrar_sesion"
+)
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
@@ -107,15 +106,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch route {
-	case "nuevo_usuario":
+	case pathNuevoUsuario:
 		h.NuevoUsuario()(w, r)
-	case "confirmar_usuario":
+	case pathConfirmarUsuario:
 		h.ConfirmarUsuario()(w, r)
-	case "solicitar_blanqueo":
+	case pathSolicitarBlanqueo:
 		h.SolicitarBlanqueo()(w, r)
-	case "confirmar_blanqueo":
+	case pathConfirmarBlanqueo:
 		h.ConfirmarBlanqueo()(w, r)
-	case "cerrar_sesion":
+	case pathCerrarSesion:
 		h.CerrarSesion()(w, r)
 	default:
 		http.Error(w, "", http.StatusNotFound)
@@ -200,7 +199,7 @@ func (h *Handler) NuevoUsuario() http.HandlerFunc {
 		}
 
 		// Envío el mail con el link para confirmar usuario
-		body, err := h.MailConfirmacionUsuario.Body(u.Nombre, conf.ID.String())
+		body, err := h.MailConfirmacionUsuario.body(u.Nombre, conf.ID.String())
 		if err != nil {
 			tx.Rollback()
 			httpErr(w, errors.Wrap(err, "creando body de mail usuario"), http.StatusInternalServerError)
@@ -322,7 +321,7 @@ func (h *Handler) SolicitarBlanqueo() http.HandlerFunc {
 		}
 
 		// Envio un mail con el link que lleva a una página donde puede ingresar la nueva contraseña
-		body, err := h.MailBlanqueo.Body(usuario.Nombre, conf.ID.String())
+		body, err := h.MailBlanqueo.body(usuario.Nombre, conf.ID.String())
 		if err != nil {
 			httpErr(w, errors.Wrap(err, "generando el body del mail"), http.StatusInternalServerError)
 			return
