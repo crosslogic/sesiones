@@ -3,7 +3,6 @@ package sesiones
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -93,7 +92,7 @@ func (h *Handler) blanquearPassword(usuarioID, nuevaContraseña string, blanquea
 	usuario.Hash = calcularHash(nuevaContraseña)
 	usuario.UltimaActualizacionContraseña = time.Now()
 	usuario.BlanquearProximoIngreso = blanquearLuego
-	fmt.Println("Blanqueando usuario... ", usuario)
+
 	// Persisto
 	err = h.db.Save(&usuario).Error
 	if err != nil {
@@ -150,10 +149,6 @@ func (h *Handler) existeUsuario(userID string) (usuario Usuario, existe bool, er
 func compararPaswords(password string, hashDB string) error {
 	hash := calcularHash(password)
 	if hash != hashDB {
-
-		//fmt.Println("Comparando: ", hash)
-		//fmt.Println("con       : ", hashDB)
-
 		return errors.Wrap(ErrAutenticacion{}, "Al chequear la contraseña")
 	}
 	return nil
@@ -192,10 +187,4 @@ func (h *Handler) checkPass(userID, password string) error {
 	}
 
 	return nil
-}
-
-func (h *Handler) GetByID(userID string) (u Usuario, err error) {
-
-	err = h.db.Find(&u, "id = ?", userID).Error
-	return
 }

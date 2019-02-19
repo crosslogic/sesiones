@@ -11,30 +11,37 @@ import (
 )
 
 func TestToken(t *testing.T) {
+	h := Handler{}
+	h.secretKey = []byte("secreto")
+
 	// Creo un token
-	token, err := newToken("marcos", time.Minute*10)
+	token, err := h.newToken("marcos")
 	assert.Nil(t, err)
 
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString(h.secretKey)
 	assert.Nil(t, err)
 
 	// Chequeo
-	_, err = chequearToken(tokenString, time.Minute*10)
+	_, err = h.chequearToken(tokenString)
 	assert.Nil(t, err)
 
 }
 
 func TestTokenVencido(t *testing.T) {
+
+	h := Handler{}
+	h.secretKey = []byte("secreto")
+
 	// Creo un token
-	token, err := newToken("marcos", time.Millisecond)
+	token, err := h.newToken("marcos")
 	assert.Nil(t, err)
 
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString(h.secretKey)
 	assert.Nil(t, err)
 	time.Sleep(time.Second)
 
 	// Chequeo, debería devolverme un token expirado
-	_, err = chequearToken(tokenString, time.Millisecond*10)
+	_, err = h.chequearToken(tokenString)
 	assert.NotNil(t, err)
 
 }
@@ -47,7 +54,7 @@ func TestRequestSinToken(t *testing.T) {
 	assert.Nil(t, err)
 
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(HandleControlaSesiones)
+	handler := http.HandlerFunc(handleControlaSesiones)
 	handler.ServeHTTP(rec, r)
 
 	// Debería devolver no autorizado
@@ -56,29 +63,36 @@ func TestRequestSinToken(t *testing.T) {
 }
 
 func TestRequestConTokenValido(t *testing.T) {
+	h := Handler{}
+	h.secretKey = []byte("secreto")
+
 	// Request CON token válido
 	r2, err := http.NewRequest(http.MethodGet, "/", strings.NewReader(`{"pido": "gancho"}`))
 	assert.Nil(t, err)
 
-	token, err := newToken("marcos", time.Second*10)
+	token, err := h.newToken("marcos")
 	assert.Nil(t, err)
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString(h.secretKey)
 	assert.Nil(t, err)
 	r2.AddCookie(&http.Cookie{Name: "token", Value: tokenString})
 	assert.Nil(t, err)
 
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(HandleControlaSesiones)
+	handler := http.HandlerFunc(handleControlaSesiones)
 	handler.ServeHTTP(rec, r2)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 func TestRequestConTokenInválido(t *testing.T) {
+
+	h := Handler{}
+	h.secretKey = []byte("secreto")
+
 	// Request CON token válido
 	r2, err := http.NewRequest(http.MethodGet, "/", strings.NewReader(`{"pido": "gancho"}`))
 	assert.Nil(t, err)
 
-	token, err := newToken("marcos", time.Second*10)
+	token, err := h.newToken("marcos")
 	assert.Nil(t, err)
 	tokenString, err := token.SignedString([]byte("token inválido"))
 	assert.Nil(t, err)
@@ -86,33 +100,37 @@ func TestRequestConTokenInválido(t *testing.T) {
 	assert.Nil(t, err)
 
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(HandleControlaSesiones)
+	handler := http.HandlerFunc(handleControlaSesiones)
 	handler.ServeHTTP(rec, r2)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestRequestVencida(t *testing.T) {
+	h := Handler{}
+	h.secretKey = []byte("secreto")
 
 	r, err := http.NewRequest(http.MethodGet, "/", strings.NewReader(`{"pido": "gancho"}`))
 	assert.Nil(t, err)
 
-	token, err := newToken("marcos", time.Millisecond)
+	token, err := h.newToken("marcos")
 	assert.Nil(t, err)
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString(h.secretKey)
 	assert.Nil(t, err)
 	r.AddCookie(&http.Cookie{Name: "token", Value: tokenString})
 	assert.Nil(t, err)
 
 	time.Sleep(time.Second)
 	rec := httptest.NewRecorder()
-	handler := http.HandlerFunc(HandleControlaSesiones)
+	handler := http.HandlerFunc(handleControlaSesiones)
 	handler.ServeHTTP(rec, r)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-func HandleControlaSesiones(w http.ResponseWriter, r *http.Request) {
+func handleControlaSesiones(w http.ResponseWriter, r *http.Request) {
+	h := Handler{}
+	h.secretKey = []byte("secreto")
 
 	// Extrae el token
 	token, err := extraerToken(r)
@@ -123,7 +141,7 @@ func HandleControlaSesiones(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Chequea el token
-	_, err = chequearToken(token, time.Minute)
+	_, err = h.chequearToken(token)
 	if err != nil {
 		http.Error(w, "token no válido", http.StatusUnauthorized)
 		return

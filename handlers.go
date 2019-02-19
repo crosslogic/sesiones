@@ -117,6 +117,112 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// ChequearSesion revisa que el request tenga un token y que sea válido.
+// Si está todo ok le actualiza el tiempo de expiración.ChequearToken
+// Sino devuelve un error Unauthorized.
+func (h *Handler) ChequearSesion(w http.ResponseWriter, r *http.Request) error {
+
+	// Extraigo token
+	token, err := extraerToken(r)
+	if err != nil {
+		return errors.Wrap(err, "parseando token")
+
+	}
+
+	// Chequeo
+	t2, err := h.chequearToken(token)
+	if err != nil {
+		return errors.Wrap(err, "chequeando token")
+	}
+
+	// Estaba ok, pego el nuevo
+	h.setToken(w, t2)
+	return nil
+
+}
+
+// Login devuelve una HandlerFunc que corrobora usuario y contraseña y si pasa
+// le pega una cookie.
+func (h *Handler) Login() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Request
+		params := struct {
+			UserID string
+			Pass   string
+		}{}
+
+		err := json.NewDecoder(r.Body).Decode(&params)
+		if err != nil {
+			httpErr(w, err, http.StatusInternalServerError, "parámetros incorrectos")
+			return
+		}
+
+		// Verifico usuario y contraseña
+		err = h.checkPass(params.UserID, params.Pass)
+		if err != nil {
+
+			switch err := errors.Cause(err).(type) {
+			case ErrAutenticacion:
+				httpErr(w, err, http.StatusUnauthorized, "ErrAutenticacióñ")
+				return
+			case ErrCorrespondeBlanquear:
+				httpErr(w, err, http.StatusInternalServerError, "Corresponde blanquear")
+				return
+			default:
+
+				httpErr(w, err, http.StatusInternalServerError, "Caimos en el default")
+				return
+			}
+
+		}
+
+		// Creo un token
+		token, err := h.newToken(params.UserID)
+		if err != nil {
+			httpErr(w, err, http.StatusInternalServerError, "creando token")
+			return
+		}
+
+		// Pego el token al response
+		err = h.setToken(w, token)
+		if err != nil {
+			httpErr(w, err, http.StatusInternalServerError, "creando token")
+			return
+		}
+
+		w.Write([]byte("Loggeado"))
+		return
+	}
+}
+
+// CerrarSesion mata el token, con lo cual el usuario corta su login.
+func (h *Handler) CerrarSesion() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenString, err := extraerToken(r)
+		if err != nil {
+			httpErr(w, err, http.StatusInternalServerError, "buscando token")
+			return
+		}
+
+		token, err := h.parseToken(tokenString)
+		if err != nil {
+			httpErr(w, err, http.StatusInternalServerError, "parseando token")
+			return
+		}
+
+		// Pego el token al response
+		err = h.setTokenVencido(w, token)
+		if err != nil {
+			httpErr(w, err, http.StatusInternalServerError, "creando token vencido")
+			return
+		}
+		w.Write([]byte("Logged out"))
+		return
+	}
+}
+
 // NuevoUsuario da de alta un usuario, envía el mail y lo deja en estado
 // "Pendiente de Confirmación".
 func (h *Handler) NuevoUsuario() http.HandlerFunc {
