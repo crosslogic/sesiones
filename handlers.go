@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -138,6 +139,27 @@ func (h *Handler) ChequearSesion(w http.ResponseWriter, r *http.Request) error {
 	// Estaba ok, pego el nuevo
 	h.setToken(w, t2)
 	return nil
+
+}
+
+// UsuarioID devuelve el campo Nombre para el usuario de la sesión. Esta función la van
+// a usar los otros packages.
+func (h *Handler) UsuarioID(r *http.Request) (id string, err error) {
+	tokenString, err := extraerToken(r)
+	if err != nil {
+		return id, errors.Wrap(err, "extrayendo token de request")
+	}
+
+	token, err := h.parseToken(tokenString)
+	if err != nil {
+		return id, errors.Wrap(err, "parseando token")
+	}
+
+	// Infiero tipo
+	claims := token.Claims.(jwt.MapClaims)
+	id = claims["userID"].(string)
+
+	return id, err
 
 }
 

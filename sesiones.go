@@ -9,6 +9,26 @@ import (
 	"github.com/pkg/errors"
 )
 
+// UsuarioID devuelve el campo Nombre para el usuario de la sesión
+func (h *Handler) UsuarioID(r *http.Request) (id string, err error) {
+	tokenString, err := extraerToken(r)
+	if err != nil {
+		return id, errors.Wrap(err, "extrayendo token de request")
+	}
+
+	token, err := h.parseToken(tokenString)
+	if err != nil {
+		return id, errors.Wrap(err, "parseando token")
+	}
+
+	// Infiero tipo
+	claims := token.Claims.(jwt.MapClaims)
+	id = claims["userID"].(string)
+
+	return id, err
+
+}
+
 // chequearToken determina si el token ingresado es válido, si es así le
 // actualiza la hora de vencimiento.
 func (h *Handler) chequearToken(token string) (tokenOut *jwt.Token, err error) {
