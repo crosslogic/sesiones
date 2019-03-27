@@ -4,16 +4,17 @@ import "github.com/go-mail/mail"
 
 // DefaultMailSender es la implementación estandar del mail sender.
 type DefaultMailSender struct {
-	Dialer *mail.Dialer
+	Dialer      *mail.Dialer
+	senderAlias string
 }
 
 // NewDefaultMailSender creau un MailSender.
-func NewDefaultMailSender(host string, port int, user, pass string) (sender *DefaultMailSender) {
+func NewDefaultMailSender(host string, port int, user, pass, senderAlias string) (sender *DefaultMailSender) {
 
 	d := mail.NewDialer(host, port, user, pass)
 	sender = &DefaultMailSender{}
 	sender.Dialer = d
-
+	sender.senderAlias = senderAlias
 	return
 }
 
@@ -28,5 +29,9 @@ func (d *DefaultMailSender) Send(to, from, subject, body string) (err error) {
 	// Send the email to
 	err = d.Dialer.DialAndSend(m)
 	return
+}
 
+// SenderAlias envía mail con los datos ingresados
+func (d *DefaultMailSender) SenderAlias() string {
+	return d.senderAlias
 }

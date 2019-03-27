@@ -1,5 +1,4 @@
-// Package sesiones se encarga de la creación de usuarios, log in, log out
-// cambios de contraseña, etc.
+// Package sesiones se encarga de USUARIOS y SESIONES.
 // Funciona como un HTTPHandler con tiene paths definidos.
 // No tiene front end.
 //
@@ -9,8 +8,10 @@
 // Logout()
 //
 // NuevoUsuario()
+//
 // ConfirmarUsuario()
 // SolicitarBlanqueo()
 // ConfirmarBlanqueo()
 // BorrarUsuario()
+//
 package sesiones
