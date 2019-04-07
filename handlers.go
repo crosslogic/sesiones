@@ -192,7 +192,8 @@ func (h *Handler) Login() http.HandlerFunc {
 				httpErr(w, err, http.StatusUnauthorized, "ErrAutenticacióñ")
 				return
 			case ErrCorrespondeBlanquear:
-				httpErr(w, err, http.StatusInternalServerError, "Corresponde blanquear")
+				// Uso este código para determinar que debe cambiar la contraseña
+				httpErr(w, err, http.StatusForbidden, "Corresponde cambiar contraseña")
 				return
 			default:
 
