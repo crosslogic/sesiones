@@ -516,6 +516,7 @@ func (h *Handler) ConfirmarBlanqueo() http.HandlerFunc {
 func (h *Handler) CambiarContraseña() http.HandlerFunc {
 
 	request := struct {
+		UserID string
 		Actual string
 		Pass   string
 		Pass2  string
@@ -537,19 +538,14 @@ func (h *Handler) CambiarContraseña() http.HandlerFunc {
 		}
 
 		// Está ok la contraseña actual?
-		userID, err := h.usuarioID(r)
-		if err != nil {
-			httpErr(w, errors.Wrap(err, "determiando user ID"), http.StatusInternalServerError)
-			return
-		}
-		err = h.checkPass(userID, request.Actual)
+		err = h.coincideUserYPass(request.UserID, request.Actual)
 		if err != nil {
 			httpErr(w, err, http.StatusInternalServerError)
 			return
 		}
 
 		// Estamos ok, procedemos con el blanqueo
-		err = h.blanquearPassword(userID, request.Pass, false)
+		err = h.blanquearPassword(request.UserID, request.Pass, false)
 		if err != nil {
 			httpErr(w, errors.New("blanqueando password"), http.StatusInternalServerError)
 			return

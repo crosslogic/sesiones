@@ -154,7 +154,27 @@ func compararPaswords(password string, hashDB string) error {
 	return nil
 }
 
-// checkPass prueba si la contraseña y el usuario son correctos. No hace ninguna acción.
+// checkPass prueba si la contraseña y el usuario son correctos.
+func (h *Handler) coincideUserYPass(userID, password string) error {
+	// Corroboro que exista el usuario
+	usuario, existe, err := h.existeUsuario(userID)
+	if err != nil {
+		return err
+	}
+
+	if existe == false {
+		return errors.Wrap(ErrAutenticacion{}, "no se encontró el usuario "+userID)
+	}
+
+	// Corroboro que coincida la password.
+	err = compararPaswords(password, usuario.Hash)
+	if err != nil {
+		return errors.Wrap(ErrAutenticacion{}, "contraseña incorrecta")
+	}
+	return nil
+}
+
+// checkPass prueba si está en condiciones de hacer el login. No hace ninguna acción.
 func (h *Handler) checkPass(userID, password string) error {
 	// Corroboro que exista el usuario
 	usuario, existe, err := h.existeUsuario(userID)
