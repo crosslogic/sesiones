@@ -75,6 +75,7 @@ func New(
 
 const (
 	pathNuevoUsuario      = "nuevo_usuario"
+	pathCambiarContraseña = "cambiar_contraseña"
 	pathConfirmarUsuario  = "confirmar_usuario"
 	pathSolicitarBlanqueo = "solicitar_blanqueo"
 	pathConfirmarBlanqueo = "confirmar_blanqueo"
@@ -106,6 +107,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.NuevoUsuario()(w, r)
 	case pathConfirmarUsuario:
 		h.ConfirmarUsuario()(w, r)
+	case pathCambiarContraseña:
+		h.CambiarContraseña()(w, r)
 	case pathSolicitarBlanqueo:
 		h.SolicitarBlanqueo()(w, r)
 	case pathConfirmarBlanqueo:
@@ -500,6 +503,52 @@ func (h *Handler) ConfirmarBlanqueo() http.HandlerFunc {
 
 		// Cambio el hash de la constraseña
 		err = h.blanquearPassword(c.UserID, request.Pass, false)
+		if err != nil {
+			httpErr(w, errors.New("blanqueando password"), http.StatusInternalServerError)
+			return
+		}
+
+	}
+}
+
+// CambiarContraseña se llama desde la página /blanquear
+func (h *Handler) CambiarContraseña() http.HandlerFunc {
+
+	request := struct {
+		Actual string
+		Pass   string
+		Pass2  string
+	}{}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		// Leo request
+		err := json.NewDecoder(r.Body).Decode(&request)
+		if err != nil {
+			httpErr(w, errors.Wrap(err, "al leer JSON"), http.StatusBadRequest)
+			return
+		}
+
+		// Que coincidan las dos contraseñas
+		if request.Pass != request.Pass2 {
+			httpErr(w, errors.Wrap(err, "las contraseñas no coinciden"), http.StatusBadRequest)
+			return
+		}
+
+		// Está ok la contraseña actual?
+		userID, err := h.usuarioID(r)
+		if err != nil {
+			httpErr(w, errors.Wrap(err, "determiando user ID"), http.StatusInternalServerError)
+			return
+		}
+		err = h.checkPass(userID, request.Actual)
+		if err != nil {
+			httpErr(w, err, http.StatusInternalServerError)
+			return
+		}
+
+		// Estamos ok, procedemos con el blanqueo
+		err = h.blanquearPassword(userID, request.Pass, false)
 		if err != nil {
 			httpErr(w, errors.New("blanqueando password"), http.StatusInternalServerError)
 			return

@@ -145,7 +145,7 @@ func (h *Handler) existeUsuario(userID string) (usuario Usuario, existe bool, er
 
 }
 
-//Compara el string de la password con el hash de la base de datos.
+// Compara el string de la password con el hash de la base de datos.
 func compararPaswords(password string, hashDB string) error {
 	hash := calcularHash(password)
 	if hash != hashDB {
