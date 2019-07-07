@@ -186,8 +186,11 @@ func (h *Handler) checkPass(userID, password string) error {
 		return errors.Wrap(err, "no se pudo corroborar si la contraseña estaba vigente")
 	}
 	if !vigente {
-		return errors.Wrap(ErrCorrespondeBlanquear{}, "la contraseña ha caducado")
+		return ErrCorrespondeBlanquear{"la contraseña ha caducado"}
 	}
 
+	if usuario.Estado == EstadoPendienteConfirmación {
+		return ErrCorrespondeConfirmarMail{}
+	}
 	return nil
 }
