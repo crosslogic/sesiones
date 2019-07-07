@@ -343,8 +343,8 @@ func (h *Handler) ReenviarMailConfirmacion() http.HandlerFunc {
 			httpErr(w, errors.Wrap(err, "buscando el usuario"), http.StatusInternalServerError)
 			return
 		}
-		if len(u) != 0 {
-			httpErr(w, errors.Wrap(err, "no se pudo encontrar el usuario"), http.StatusInternalServerError)
+		if len(u) == 0 {
+			httpErr(w, errors.New("no se pudo encontrar el usuario"), http.StatusInternalServerError)
 			return
 		}
 
