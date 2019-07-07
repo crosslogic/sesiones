@@ -298,10 +298,9 @@ func (h *Handler) NuevoUsuario() http.HandlerFunc {
 		conf.ID, _ = uuid.NewV4()
 		conf.UserID = u.ID
 		conf.Motivo = MotivoCreacion
-		tx := h.db.Begin()
-		err = tx.Create(&conf).Error
+
+		err = h.db.Create(&conf).Error
 		if err != nil {
-			tx.Rollback()
 			httpErr(w, errors.Wrap(err, "creando confiramación de usuario"), http.StatusInternalServerError)
 			return
 		}
@@ -309,19 +308,70 @@ func (h *Handler) NuevoUsuario() http.HandlerFunc {
 		// Envío el mail con el link para confirmar usuario
 		body, err := h.MailConfirmacionUsuario.body(u.Nombre, conf.ID.String())
 		if err != nil {
-			tx.Rollback()
 			httpErr(w, errors.Wrap(err, "creando body de mail usuario"), http.StatusInternalServerError)
 			return
 		}
-		h.MailSender.Send(u.ID, h.MailSender.SenderAlias(), "Confirmación de usuario", body)
 
-		err = tx.Commit().Error
+		h.MailSender.Send(u.ID, h.MailSender.SenderAlias(), "Confirmación de usuario", body)
 		if err != nil {
 			httpErr(w, errors.Wrap(err, "confirmando la transacción"), http.StatusInternalServerError)
 			return
 		}
 
 		return
+	}
+}
+
+// ReenviarMailConfirmacion manda nuevamente el mail que está pendiente de
+// confirmación de nuevo usuario
+func (h *Handler) ReenviarMailConfirmacion() http.HandlerFunc {
+
+	request := struct {
+		UserID string
+	}{}
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Leo el request
+		err := json.NewDecoder(r.Body).Decode(&request)
+		if err != nil {
+			httpErr(w, errors.Wrap(err, ""), http.StatusBadRequest)
+		}
+
+		// Busco el nombre de este usuario
+		u := []Usuario{}
+		err = h.db.Find(&u).Error
+		if err != nil {
+			httpErr(w, errors.Wrap(err, "buscando el usuario"), http.StatusInternalServerError)
+			return
+		}
+		if len(u) != 0 {
+			httpErr(w, errors.Wrap(err, "no se pudo encontrar el usuario"), http.StatusInternalServerError)
+			return
+		}
+
+		// Creo el registro con el codigo de confirmación.
+		conf := UsuarioConfirmacion{}
+		conf.ID, _ = uuid.NewV4()
+		conf.UserID = request.UserID
+		conf.Motivo = MotivoCreacion
+
+		err = h.db.Create(&conf).Error
+		if err != nil {
+			httpErr(w, errors.Wrap(err, "creando confiramación de usuario"), http.StatusInternalServerError)
+			return
+		}
+
+		// Envío el mail con el link para confirmar usuario
+		body, err := h.MailConfirmacionUsuario.body(u[0].Nombre, conf.ID.String())
+		if err != nil {
+			httpErr(w, errors.Wrap(err, "creando body de mail usuario"), http.StatusInternalServerError)
+			return
+		}
+
+		h.MailSender.Send(u[0].ID, h.MailSender.SenderAlias(), "Confirmación de usuario", body)
+		if err != nil {
+			httpErr(w, errors.Wrap(err, "confirmando la transacción"), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
