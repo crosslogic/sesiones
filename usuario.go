@@ -55,23 +55,6 @@ var (
 	ErrDirectivaPassword = errors.New("error de validación")
 )
 
-// ErrAutenticacion significa que se analizaron los datos de usuario y
-// contraseña suministrados por el usuario, pero alguno de ellos no era
-// correcto.
-type ErrAutenticacion struct{}
-
-func (e ErrAutenticacion) Error() string {
-	return "usuario o contraseña incorrecta"
-}
-
-// ErrCorrespondeBlanquear se da cuando los datos son correctos pero,
-// el usuario tiene que cambiar la contraseña
-type ErrCorrespondeBlanquear struct{}
-
-func (e ErrCorrespondeBlanquear) Error() string {
-	return "Se debe blanquear la contraseña"
-}
-
 // Borrar borra el usuario de la tabla de usuarios.
 func (h *Handler) Borrar(u Usuario) error {
 	return h.db.Delete(&u).Error
@@ -183,14 +166,14 @@ func (h *Handler) checkPass(userID, password string) error {
 	}
 
 	if existe == false {
-		return errors.Wrap(ErrAutenticacion{}, "no se encontró el usuario "+userID)
+		return ErrAutenticacion{"el usuario no existe"}
 	}
 
 	// Corroboro que coincida la password.
 	// "4cf6829aa93728e8f3c97df913fb1bfa95fe5810e2933a05943f8312a98d9cf2",
 	err = compararPaswords(password, usuario.Hash)
 	if err != nil {
-		return errors.Wrap(ErrAutenticacion{}, "contraseña incorrecta")
+		return ErrAutenticacion{"usuario o contraseña incorrectos"}
 	}
 
 	if usuario.BlanquearProximoIngreso {

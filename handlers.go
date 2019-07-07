@@ -168,58 +168,39 @@ func (h *Handler) UsuarioID(r *http.Request) (id string, err error) {
 
 // Login devuelve una HandlerFunc que corrobora usuario y contraseña y si pasa
 // le pega una cookie.
-func (h *Handler) Login() http.HandlerFunc {
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) error {
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Request
-		params := struct {
-			UserID string
-			Pass   string
-		}{}
+	// Request
+	params := struct {
+		UserID string
+		Pass   string
+	}{}
 
-		err := json.NewDecoder(r.Body).Decode(&params)
-		if err != nil {
-			httpErr(w, err, http.StatusInternalServerError, "parámetros incorrectos")
-			return
-		}
-
-		// Verifico usuario y contraseña
-		err = h.checkPass(params.UserID, params.Pass)
-		if err != nil {
-
-			switch err := errors.Cause(err).(type) {
-			case ErrAutenticacion:
-				httpErr(w, err, http.StatusUnauthorized, "ErrAutenticacióñ")
-				return
-			case ErrCorrespondeBlanquear:
-				// Uso este código para determinar que debe cambiar la contraseña
-				httpErr(w, err, http.StatusForbidden, "Corresponde cambiar contraseña")
-				return
-			default:
-
-				httpErr(w, err, http.StatusInternalServerError, "Caimos en el default")
-				return
-			}
-
-		}
-
-		// Creo un token
-		token, err := h.newToken(params.UserID)
-		if err != nil {
-			httpErr(w, err, http.StatusInternalServerError, "creando token")
-			return
-		}
-
-		// Pego el token al response
-		err = h.setToken(w, token)
-		if err != nil {
-			httpErr(w, err, http.StatusInternalServerError, "creando token")
-			return
-		}
-
-		w.Write([]byte("Loggeado"))
-		return
+	err := json.NewDecoder(r.Body).Decode(&params)
+	if err != nil {
+		return errors.Wrap(err, "leyendo usuario y contraseña")
 	}
+
+	// Verifico usuario y contraseña
+	err = h.checkPass(params.UserID, params.Pass)
+	if err != nil {
+		return err
+	}
+
+	// Creo un token
+	token, err := h.newToken(params.UserID)
+	if err != nil {
+		return errors.Wrap(err, "creando token")
+	}
+
+	// Pego el token al response
+	err = h.setToken(w, token)
+	if err != nil {
+		return errors.Wrap(err, "pegando token")
+	}
+
+	return nil
+
 }
 
 // CerrarSesion mata el token, con lo cual el usuario corta su login.
